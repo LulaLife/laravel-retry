@@ -21,15 +21,8 @@ class LaravelHttpRetryIntegration
      */
     public static function register(): void
     {
-        /**
-         * Robust retry macro that uses Laravel Retry's strategies
-         *
-         * @param  int  $maxAttempts  Maximum number of retries
-         * @param  RetryStrategy|null  $strategy  Retry strategy to use
-         * @param  array  $options  Additional options for retry behavior
-         * @return PendingRequest
-         */
-        Http::macro('robustRetry', function (
+        // Define the macro implementations as closures to reuse them
+        $robustRetryMacro = function (
             int $maxAttempts = 3,
             ?RetryStrategy $strategy = null,
             array $options = []
@@ -76,32 +69,17 @@ class LaravelHttpRetryIntegration
             $throw = $options['throw'] ?? true;
 
             return $pendingRequest->retry($maxAttempts, $sleepCallback, $whenCallback, $throw);
-        });
+        };
 
-        /**
-         * Apply a specific retry strategy to the HTTP request with options
-         *
-         * @param  RetryStrategy  $strategy  The strategy to use for retries
-         * @param  array  $options  Additional options for retry behavior
-         * @return PendingRequest
-         */
-        Http::macro('withRetryStrategy', function (RetryStrategy $strategy, array $options = []) {
+        $withRetryStrategyMacro = function (RetryStrategy $strategy, array $options = []) {
             return $this->robustRetry(
                 $options['max_attempts'] ?? 3,
                 $strategy,
                 $options
             );
-        });
+        };
 
-        /**
-         * Apply circuit breaker strategy to the HTTP request
-         *
-         * @param  int  $maxAttempts  Maximum number of retries
-         * @param  int  $timeout  Circuit timeout in seconds
-         * @param  array  $options  Additional options for retry behavior
-         * @return PendingRequest
-         */
-        Http::macro('withCircuitBreaker', function (int $maxAttempts = 3, int $timeout = 60, array $options = []) {
+        $withCircuitBreakerMacro = function (int $maxAttempts = 3, int $timeout = 60, array $options = []) {
             $innerStrategy = new GuzzleResponseStrategy;
 
             $strategy = new \GregPriday\LaravelRetry\Strategies\CircuitBreakerStrategy(
@@ -111,17 +89,9 @@ class LaravelHttpRetryIntegration
             );
 
             return $this->robustRetry($maxAttempts, $strategy, $options);
-        });
+        };
 
-        /**
-         * Apply rate limit detection and handling to the HTTP request
-         *
-         * @param  int  $maxAttempts  Maximum number of retries per time window
-         * @param  int  $timeWindow  Time window in seconds
-         * @param  array  $options  Additional options for retry behavior
-         * @return PendingRequest
-         */
-        Http::macro('withRateLimitHandling', function (int $maxAttempts = 100, int $timeWindow = 60, array $options = []) {
+        $withRateLimitHandlingMacro = function (int $maxAttempts = 100, int $timeWindow = 60, array $options = []) {
             $strategy = new RateLimitStrategy(
                 innerStrategy: new GuzzleResponseStrategy,
                 maxAttempts: $maxAttempts,
@@ -133,16 +103,9 @@ class LaravelHttpRetryIntegration
                 $strategy,
                 $options
             );
-        });
+        };
 
-        /**
-         * Apply custom retry conditions with options
-         *
-         * @param  Closure  $condition  Custom retry condition
-         * @param  array  $options  Additional options for retry behavior
-         * @return PendingRequest
-         */
-        Http::macro('retryWhen', function (Closure $condition, array $options = []) {
+        $retryWhenMacro = function (Closure $condition, array $options = []) {
             $baseDelay = (float) ($options['base_delay'] ?? 1.0);
             $strategy = new CustomOptionsStrategy($baseDelay, new GuzzleResponseStrategy($baseDelay));
             $strategy->withShouldRetryCallback($condition);
@@ -152,6 +115,20 @@ class LaravelHttpRetryIntegration
                 $strategy,
                 $options
             );
-        });
+        };
+
+        // Register macros on Http facade (Factory class)
+        Http::macro('robustRetry', $robustRetryMacro);
+        Http::macro('withRetryStrategy', $withRetryStrategyMacro);
+        Http::macro('withCircuitBreaker', $withCircuitBreakerMacro);
+        Http::macro('withRateLimitHandling', $withRateLimitHandlingMacro);
+        Http::macro('retryWhen', $retryWhenMacro);
+
+        // Register macros on PendingRequest class for method chaining
+        PendingRequest::macro('robustRetry', $robustRetryMacro);
+        PendingRequest::macro('withRetryStrategy', $withRetryStrategyMacro);
+        PendingRequest::macro('withCircuitBreaker', $withCircuitBreakerMacro);
+        PendingRequest::macro('withRateLimitHandling', $withRateLimitHandlingMacro);
+        PendingRequest::macro('retryWhen', $retryWhenMacro);
     }
 }

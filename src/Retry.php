@@ -19,12 +19,12 @@ class Retry
     /**
      * Default maximum number of retries.
      */
-    private const int DEFAULT_MAX_RETRIES = 3;
+    private const DEFAULT_MAX_RETRIES = 3;
 
     /**
      * Default timeout for operations in seconds.
      */
-    private const int DEFAULT_TIMEOUT = 30;
+    private const DEFAULT_TIMEOUT = 30;
 
     /**
      * List of retryable error patterns.

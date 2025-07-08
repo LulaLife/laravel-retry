@@ -219,6 +219,99 @@ class HttpClientIntegrationTest extends TestCase
     }
 
     /** @test */
+    public function it_supports_chaining_with_headers_before_retry_strategy()
+    {
+        $strategy = new GuzzleResponseStrategy();
+
+        Http::fake([
+            '*' => Http::response(['success' => true]),
+        ]);
+
+        // This should now work because withRetryStrategy is available on PendingRequest
+        $response = Http::withHeaders(['X-Test' => 'value'])->withRetryStrategy($strategy, [
+            'max_attempts' => 3,
+        ])->get('https://example.com/api');
+
+        $this->assertTrue($response['success']);
+        Http::assertSent(function (Request $request) {
+            return $request->hasHeader('X-Test', 'value');
+        });
+    }
+
+    /** @test */
+    public function it_supports_chaining_with_headers_before_rate_limit_handling()
+    {
+        Http::fake([
+            '*' => Http::response(['success' => true]),
+        ]);
+
+        // This should now work because withRateLimitHandling is available on PendingRequest
+        $response = Http::withHeaders(['X-Test' => 'value'])->withRateLimitHandling()->get('https://example.com/api');
+
+        $this->assertTrue($response['success']);
+        Http::assertSent(function (Request $request) {
+            return $request->hasHeader('X-Test', 'value');
+        });
+    }
+
+    /** @test */
+    public function it_supports_chaining_with_headers_before_circuit_breaker()
+    {
+        Http::fake([
+            '*' => Http::response(['success' => true]),
+        ]);
+
+        // This should now work because withCircuitBreaker is available on PendingRequest
+        $response = Http::withHeaders(['X-Test' => 'value'])->withCircuitBreaker()->get('https://example.com/api');
+
+        $this->assertTrue($response['success']);
+        Http::assertSent(function (Request $request) {
+            return $request->hasHeader('X-Test', 'value');
+        });
+    }
+
+    /** @test */
+    public function it_supports_chaining_with_headers_before_retry_when()
+    {
+        Http::fake([
+            '*' => Http::response(['success' => true]),
+        ]);
+
+        // This should now work because retryWhen is available on PendingRequest
+        $response = Http::withHeaders(['X-Test' => 'value'])->retryWhen(function () {
+            return false; // Don't retry for this test
+        })->get('https://example.com/api');
+
+        $this->assertTrue($response['success']);
+        Http::assertSent(function (Request $request) {
+            return $request->hasHeader('X-Test', 'value');
+        });
+    }
+
+    /** @test */
+    public function it_supports_complex_method_chaining()
+    {
+        $strategy = new GuzzleResponseStrategy();
+
+        Http::fake([
+            '*' => Http::response(['success' => true]),
+        ]);
+
+        // Test complex chaining with multiple methods
+        $response = Http::withToken('api-token')
+            ->withHeaders(['X-Custom' => 'value'])
+            ->withRetryStrategy($strategy, ['max_attempts' => 2])
+            ->timeout(10)
+            ->get('https://example.com/api');
+
+        $this->assertTrue($response['success']);
+        Http::assertSent(function (Request $request) {
+            return $request->hasHeader('Authorization', 'Bearer api-token') &&
+                   $request->hasHeader('X-Custom', 'value');
+        });
+    }
+
+    /** @test */
     public function rate_limit_strategy_respects_time_window()
     {
         $maxAttempts = 2;
