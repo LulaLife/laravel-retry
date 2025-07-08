@@ -91,11 +91,12 @@ class LaravelHttpRetryIntegration
             return $this->robustRetry($maxAttempts, $strategy, $options);
         };
 
-        $withRateLimitHandlingMacro = function (int $maxAttempts = 100, int $timeWindow = 60, array $options = []) {
+        $withRateLimitHandlingMacro = function (int $maxAttempts = 100, int $timeWindow = 60, string $storageKey = 'default', array $options = []) {
             $strategy = new RateLimitStrategy(
                 innerStrategy: new GuzzleResponseStrategy,
                 maxAttempts: $maxAttempts,
-                timeWindow: $timeWindow
+                timeWindow: $timeWindow,
+                storageKey: $storageKey
             );
 
             return $this->robustRetry(
